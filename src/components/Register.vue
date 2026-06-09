@@ -32,24 +32,24 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="phone">手机号（可选）</label>
+                    <label for="phone">手机号</label>
                     <input id="phone" v-model="formData.phone" type="tel" placeholder="请输入手机号"
                         :class="{ 'error': errors.phone }" />
                     <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
                 </div>
 
                 <div class="form-group">
-                    <label for="studentId">学号（可选）</label>
+                    <label for="studentId">学号</label>
                     <input id="studentId" v-model="formData.studentId" type="text" placeholder="请输入学号" />
                 </div>
 
                 <div class="form-group">
-                    <label for="major">专业（可选）</label>
+                    <label for="major">专业</label>
                     <input id="major" v-model="formData.major" type="text" placeholder="请输入专业" />
                 </div>
 
                 <div class="form-group">
-                    <label for="grade">年级（可选）</label>
+                    <label for="grade">年级</label>
                     <select id="grade" v-model="formData.grade">
                         <option value="">请选择年级</option>
                         <option value="大一">大一</option>
