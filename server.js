@@ -24,6 +24,36 @@ app.use((req, res, next) => {
   next();
 });
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('只支持图片文件（jpeg, jpg, png, gif）'));
+    }
+  }
+});
+
 let db;
 
 const initDatabase = async () => {
@@ -48,10 +78,19 @@ const initDatabase = async () => {
         student_id VARCHAR(20),
         major VARCHAR(100),
         grade VARCHAR(20),
+        avatar VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
+    
+    try {
+      await db.execute(`ALTER TABLE users ADD COLUMN avatar VARCHAR(255);`);
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') {
+        console.log('添加 avatar 字段时出现错误:', e.message);
+      }
+    }
     
     await db.execute(`
       CREATE TABLE IF NOT EXISTS events (
@@ -187,6 +226,7 @@ app.post('/api/auth/login', async (req, res) => {
       studentId: user.student_id,
       major: user.major,
       grade: user.grade,
+      avatar: user.avatar,
       createdAt: user.created_at,
       updatedAt: user.updated_at
     };
@@ -204,7 +244,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/user/me', verifyToken, async (req, res) => {
   try {
-    const [users] = await db.execute('SELECT id, username, email, phone, student_id as studentId, major, grade, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.execute('SELECT id, username, email, phone, student_id as studentId, major, grade, avatar, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) {
       return res.status(404).json({ message: '用户不存在' });
     }
@@ -216,15 +256,49 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
 });
 
 app.put('/api/user/profile', verifyToken, async (req, res) => {
-  const { username, phone, studentId, major, grade } = req.body;
+  const { username, phone, studentId, major, grade, avatar } = req.body;
   
   try {
+    const updateFields = [];
+    const updateValues = [];
+    
+    if (username !== undefined) {
+      updateFields.push('username = ?');
+      updateValues.push(username);
+    }
+    if (phone !== undefined) {
+      updateFields.push('phone = ?');
+      updateValues.push(phone);
+    }
+    if (studentId !== undefined) {
+      updateFields.push('student_id = ?');
+      updateValues.push(studentId);
+    }
+    if (major !== undefined) {
+      updateFields.push('major = ?');
+      updateValues.push(major);
+    }
+    if (grade !== undefined) {
+      updateFields.push('grade = ?');
+      updateValues.push(grade);
+    }
+    if (avatar !== undefined) {
+      updateFields.push('avatar = ?');
+      updateValues.push(avatar);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({ message: '没有提供要更新的字段' });
+    }
+    
+    updateValues.push(req.user.id);
+    
     await db.execute(
-      'UPDATE users SET username = ?, phone = ?, student_id = ?, major = ?, grade = ? WHERE id = ?',
-      [username, phone, studentId, major, grade, req.user.id]
+      `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
     );
     
-    const [users] = await db.execute('SELECT id, username, email, phone, student_id as studentId, major, grade, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.execute('SELECT id, username, email, phone, student_id as studentId, major, grade, avatar, created_at, updated_at FROM users WHERE id = ?', [req.user.id]);
     
     res.json(users[0]);
   } catch (error) {
@@ -257,6 +331,23 @@ app.put('/api/user/password', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('修改密码失败:', error);
     res.status(500).json({ message: '修改密码失败' });
+  }
+});
+
+app.post('/api/user/avatar', verifyToken, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: '未选择文件' });
+    }
+    
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    
+    await db.execute('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, req.user.id]);
+    
+    res.json({ avatarUrl });
+  } catch (error) {
+    console.error('上传头像失败:', error);
+    res.status(500).json({ message: '上传头像失败' });
   }
 });
 
