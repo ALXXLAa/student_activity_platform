@@ -20,37 +20,45 @@
                 <div class="form-group">
                     <label for="password">密码</label>
                     <input id="password" v-model="formData.password" type="password" placeholder="请输入密码（至少6位）" required
-                        :class="{ 'error': errors.password }" />
+                        :class="{ 'error': errors.password || passwordLengthError }" @input="validatePasswordLength" />
                     <span v-if="errors.password" class="error-message">{{ errors.password }}</span>
+                    <span v-if="passwordLengthError" class="error-message">{{ passwordLengthError }}</span>
                 </div>
 
                 <div class="form-group">
                     <label for="confirmPassword">确认密码</label>
                     <input id="confirmPassword" v-model="formData.confirmPassword" type="password" placeholder="请再次输入密码"
-                        required :class="{ 'error': errors.confirmPassword }" />
+                        required :class="{ 'error': errors.confirmPassword || confirmPasswordLengthError }"
+                        @input="validateConfirmPasswordLength" />
                     <span v-if="errors.confirmPassword" class="error-message">{{ errors.confirmPassword }}</span>
+                    <span v-if="confirmPasswordLengthError" class="error-message">{{ confirmPasswordLengthError
+                    }}</span>
                 </div>
 
                 <div class="form-group">
                     <label for="phone">手机号</label>
-                    <input id="phone" v-model="formData.phone" type="tel" placeholder="请输入手机号"
+                    <input id="phone" v-model="formData.phone" type="tel" placeholder="请输入手机号" required
                         :class="{ 'error': errors.phone }" />
                     <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
                 </div>
 
                 <div class="form-group">
                     <label for="studentId">学号</label>
-                    <input id="studentId" v-model="formData.studentId" type="text" placeholder="请输入学号" />
+                    <input id="studentId" v-model="formData.studentId" type="text" placeholder="请输入学号" required
+                        :class="{ 'error': errors.studentId }" />
+                    <span v-if="errors.studentId" class="error-message">{{ errors.studentId }}</span>
                 </div>
 
                 <div class="form-group">
                     <label for="major">专业</label>
-                    <input id="major" v-model="formData.major" type="text" placeholder="请输入专业" />
+                    <input id="major" v-model="formData.major" type="text" placeholder="请输入专业" required
+                        :class="{ 'error': errors.major }" />
+                    <span v-if="errors.major" class="error-message">{{ errors.major }}</span>
                 </div>
 
                 <div class="form-group">
                     <label for="grade">年级</label>
-                    <select id="grade" v-model="formData.grade">
+                    <select id="grade" v-model="formData.grade" :class="{ 'error': errors.grade }">
                         <option value="">请选择年级</option>
                         <option value="大一">大一</option>
                         <option value="大二">大二</option>
@@ -59,9 +67,10 @@
                         <option value="研究生">研究生</option>
                         <option value="博士">博士</option>
                     </select>
+                    <span v-if="errors.grade" class="error-message">{{ errors.grade }}</span>
                 </div>
 
-                <button type="submit" class="submit-button" :disabled="isLoading">
+                <button type="submit" class="submit-button" :disabled="isLoading || !isSubmitEnabled">
                     {{ isLoading ? '注册中...' : '注册' }}
                 </button>
 
@@ -78,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/user';
 
@@ -101,10 +110,35 @@ const errors = reactive({
     email: '',
     password: '',
     confirmPassword: '',
-    phone: ''
+    phone: '',
+    studentId: '',
+    major: '',
+    grade: ''
 });
 
 const isLoading = ref(false);
+const passwordLengthError = ref('');
+const confirmPasswordLengthError = ref('');
+
+const isSubmitEnabled = computed(() => {
+    return formData.password.length >= 6 && formData.confirmPassword.length >= 6;
+});
+
+const validatePasswordLength = () => {
+    if (formData.password.length > 0 && formData.password.length < 6) {
+        passwordLengthError.value = '你的密码长度小于6位';
+    } else {
+        passwordLengthError.value = '';
+    }
+};
+
+const validateConfirmPasswordLength = () => {
+    if (formData.confirmPassword.length > 0 && formData.confirmPassword.length < 6) {
+        confirmPasswordLengthError.value = '你的密码长度小于6位';
+    } else {
+        confirmPasswordLengthError.value = '';
+    }
+};
 
 const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -124,6 +158,9 @@ const validateForm = (): boolean => {
     errors.password = '';
     errors.confirmPassword = '';
     errors.phone = '';
+    errors.studentId = '';
+    errors.major = '';
+    errors.grade = '';
 
     if (formData.username.length < 2) {
         errors.username = '用户名至少需要2个字符';
@@ -145,8 +182,26 @@ const validateForm = (): boolean => {
         isValid = false;
     }
 
-    if (formData.phone && !validatePhone(formData.phone)) {
+    if (!formData.phone) {
+        errors.phone = '请输入手机号';
+        isValid = false;
+    } else if (!validatePhone(formData.phone)) {
         errors.phone = '请输入有效的手机号';
+        isValid = false;
+    }
+
+    if (!formData.studentId) {
+        errors.studentId = '请输入学号';
+        isValid = false;
+    }
+
+    if (!formData.major) {
+        errors.major = '请输入专业';
+        isValid = false;
+    }
+
+    if (!formData.grade) {
+        errors.grade = '请选择年级';
         isValid = false;
     }
 

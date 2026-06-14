@@ -182,6 +182,25 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: '邮箱已被注册' });
     }
     
+    const [usernameUsers] = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
+    if (usernameUsers.length > 0) {
+      return res.status(400).json({ message: '用户名已被使用' });
+    }
+    
+    if (phone) {
+      const [phoneUsers] = await db.execute('SELECT * FROM users WHERE phone = ?', [phone]);
+      if (phoneUsers.length > 0) {
+        return res.status(400).json({ message: '手机号已被注册' });
+      }
+    }
+    
+    if (studentId) {
+      const [studentUsers] = await db.execute('SELECT * FROM users WHERE student_id = ?', [studentId]);
+      if (studentUsers.length > 0) {
+        return res.status(400).json({ message: '学号已被注册' });
+      }
+    }
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const [result] = await db.execute(

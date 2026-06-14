@@ -13,8 +13,9 @@
                 <div class="form-group">
                     <label for="password">密码</label>
                     <input id="password" v-model="formData.password" type="password" placeholder="请输入密码" required
-                        :class="{ 'error': errors.password }" />
+                        :class="{ 'error': errors.password || passwordLengthError }" @input="validatePasswordLength" />
                     <span v-if="errors.password" class="error-message">{{ errors.password }}</span>
+                    <span v-if="passwordLengthError" class="error-message">{{ passwordLengthError }}</span>
                 </div>
 
                 <div class="form-options">
@@ -27,13 +28,13 @@
                     </router-link>
                 </div>
 
-                <button type="submit" class="submit-button" :disabled="isLoading">
+                <div v-if="loginError" class="error-alert">
+                    {{ loginError }}
+                </div>
+
+                <button type="submit" class="submit-button" :disabled="isLoading || !isSubmitEnabled">
                     {{ isLoading ? '登录中...' : '登录' }}
                 </button>
-
-                <div v-if="userStore.error" class="error-alert">
-                    {{ userStore.error }}
-                </div>
             </form>
 
             <div class="register-link">
@@ -44,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/user';
 
@@ -63,6 +64,20 @@ const errors = reactive({
 });
 
 const isLoading = ref(false);
+const passwordLengthError = ref('');
+const loginError = ref('');
+
+const validatePasswordLength = () => {
+    if (formData.password.length > 0 && formData.password.length < 6) {
+        passwordLengthError.value = '你的密码长度小于6位';
+    } else {
+        passwordLengthError.value = '';
+    }
+};
+
+const isSubmitEnabled = computed(() => {
+    return formData.password.length >= 6;
+});
 
 const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -93,6 +108,7 @@ const handleSubmit = async () => {
         return;
     }
 
+    loginError.value = '';
     isLoading.value = true;
     try {
         await userStore.login(formData.email, formData.password);
@@ -104,8 +120,13 @@ const handleSubmit = async () => {
         }
 
         router.push('/');
-    } catch (error) {
+    } catch (error: any) {
         console.error('登录失败:', error);
+        loginError.value = error.message || '邮箱或密码错误';
+
+        setTimeout(() => {
+            loginError.value = '';
+        }, 5000);
     } finally {
         isLoading.value = false;
     }
@@ -244,11 +265,42 @@ checkRememberMe();
 
 .error-alert {
     padding: 12px 16px;
-    background-color: #fee2e2;
+    background-color: #fef2f2;
     color: #dc2626;
     border-radius: 8px;
     font-size: 14px;
     margin-top: 10px;
+    border: 1px solid #fecaca;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.error-alert::before {
+    content: '✕';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: #ef4444;
+    color: white;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .register-link {
